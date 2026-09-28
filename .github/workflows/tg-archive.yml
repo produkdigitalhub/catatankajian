@@ -33,17 +33,32 @@ jobs:
           python3 -c '
           import os
           import base64
+          import sqlite3
           import yaml
 
           api_id = int(os.environ["TG_API_ID"])
           api_hash = os.environ["TG_API_HASH"]
           session_b64 = os.environ["TG_SESSION_STRING"].strip()
 
-          # Restore file .session biner utuh dari Base64
-          with open("telegram.session", "wb") as f:
+          # Decode file .session dari Base64
+          session_path = "telegram.session"
+          with open(session_path, "wb") as f:
               f.write(base64.b64decode(session_b64))
 
-          # Buat config.yaml untuk tg-archive
+          # Fix skema SQLite untuk kompatibilitas Telethon & tg-archive
+          conn = sqlite3.connect(session_path)
+          c = conn.cursor()
+          c.execute("SELECT * FROM sessions")
+          row = c.fetchone()
+          if row and len(row) > 5:
+              dc_id, server, port, auth_key = row[0], row[1], row[2], row[3]
+              c.execute("DROP TABLE sessions")
+              c.execute("CREATE TABLE sessions (dc_id integer primary key, server_address text, port integer, auth_key blob, take_out_id integer)")
+              c.execute("INSERT INTO sessions VALUES (?, ?, ?, ?, 0)", (dc_id, server, port, auth_key))
+              conn.commit()
+          conn.close()
+
+          # Buat config.yaml
           config = {
               "api_id": api_id,
               "api_hash": api_hash,
