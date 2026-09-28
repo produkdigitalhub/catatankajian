@@ -1,14 +1,24 @@
-name: Archive Telegram Channel
+name: Archive Telegram Channel & Deploy Pages
 
 on:
   workflow_dispatch:
 
-jobs:
-  archive:
-    runs-on: ubuntu-latest
+# Berikan izin penuh untuk deployment GitHub Pages
+permissions:
+  contents: write
+  pages: write
+  id-token: write
 
-    permissions:
-      contents: write
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  archive-and-deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout Repository
@@ -24,10 +34,10 @@ jobs:
           python -m pip install --upgrade pip
           pip install tg-archive pyyaml
 
-      - name: Create Output Directories and Bypass Jekyll
+      - name: Create Data Directory
         run: |
-          mkdir -p data docs
-          touch data/.gitkeep docs/.gitkeep docs/.nojekyll
+          mkdir -p data
+          touch data/.gitkeep
 
       - name: Decode Session File and Create Config
         env:
@@ -45,12 +55,12 @@ jobs:
           api_hash = os.environ["TG_API_HASH"]
           session_b64 = os.environ["TG_SESSION_STRING"].strip()
 
-          # Decode file .session dari Base64
+          # Decode session
           session_path = "telegram.session"
           with open(session_path, "wb") as f:
               f.write(base64.b64decode(session_b64))
 
-          # Fix skema SQLite untuk kompatibilitas Telethon & tg-archive
+          # Fix SQLite schema
           conn = sqlite3.connect(session_path)
           c = conn.cursor()
           c.execute("SELECT * FROM sessions")
@@ -63,13 +73,13 @@ jobs:
               conn.commit()
           conn.close()
 
-          # Buat config.yaml
+          # Config tg-archive: publish_dir diarahkan ke site
           config = {
               "api_id": api_id,
               "api_hash": api_hash,
               "group": "pelajarsunnahid",
               "data_dir": "data",
-              "publish_dir": "docs"
+              "publish_dir": "site"
           }
           with open("config.yaml", "w") as f:
               yaml.dump(config, f)
@@ -78,15 +88,21 @@ jobs:
       - name: Run tg-archive Sync & Build
         run: |
           tg-archive --config config.yaml -se telegram.session -s -b
+          touch site/.nojekyll
 
-      - name: Ensure .nojekyll Exists
-        run: |
-          touch docs/.nojekyll
-
-      - name: Commit and Push Results to GitHub
+      - name: Commit and Push Raw Data
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git add data/ docs/
-          git commit -m "chore: update site build with .nojekyll" || exit 0
+          git add data/
+          git commit -m "chore: update raw telegram data" || exit 0
           git push
+
+      - name: Upload Artifact to GitHub Pages
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: 'site/'
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
