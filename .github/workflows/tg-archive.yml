@@ -84,28 +84,31 @@ jobs:
               yaml.dump(config, f)
           '
 
-      - name: Download Official Template & Sync
+      - name: Download Official Template & Static Assets
         run: |
-          # Unduh template resmi tg-archive
+          # Unduh template.html
           curl -sL https://raw.githubusercontent.com/knadh/tg-archive/master/tgarchive/templates/template.html -o template.html
           
-          # Unduh pesan dari Telegram
+          # Buat folder static dan unduh aset CSS/JS
+          mkdir -p static
+          curl -sL https://raw.githubusercontent.com/knadh/tg-archive/master/tgarchive/static/style.css -o static/style.css
+          curl -sL https://raw.githubusercontent.com/knadh/tg-archive/master/tgarchive/static/index.js -o static/index.js || true
+
+      - name: Run tg-archive Sync
+        run: |
           tg-archive --config config.yaml -se telegram.session -s
 
       - name: Build Static Site
         run: |
-          # Build situs HTML menggunakan template.html
           tg-archive --config config.yaml -b
-          
-          # Matikan pemrosesan Jekyll di GitHub Pages
           touch site/.nojekyll
 
       - name: Commit and Push Updated Data & Site
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git add data/ site/ template.html
-          git commit -m "chore: update telegram raw data, site, and template" || exit 0
+          git add data/ site/ template.html static/
+          git commit -m "chore: update telegram raw data, site, and assets" || exit 0
           git push
 
       - name: Upload Artifact to GitHub Pages
