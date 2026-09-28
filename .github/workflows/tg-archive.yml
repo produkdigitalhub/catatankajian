@@ -38,39 +38,31 @@ jobs:
 
           api_id = int(os.environ["TG_API_ID"])
           api_hash = os.environ["TG_API_HASH"]
-          session_string = os.environ["TG_SESSION_STRING"].strip()
+          
+          # Clean and fix Base64 padding for TG_SESSION_STRING
+          raw_session = os.environ["TG_SESSION_STRING"].strip().replace("\n", "").replace("\r", "")
+          missing_padding = len(raw_session) % 4
+          if missing_padding:
+              raw_session += "=" * (4 - missing_padding)
 
-          # 1. Buat file .session fisik dari StringSession
-          client = TelegramClient(StringSession(session_string), api_id, api_hash)
+          # 1. Test connection with fixed session
+          client = TelegramClient(StringSession(raw_session), api_id, api_hash)
           client.connect()
           
-          # Simpan sebagai file session standar telethon
+          # Save standard Telethon session file
           session_file = "telegram.session"
           with open(session_file, "w") as f:
               f.write(client.session.save())
           client.disconnect()
 
-          # 2. Buat config.yaml
+          # 2. Generate config.yaml
           config = {
               "api_id": api_id,
               "api_hash": api_hash,
-              "channel": pelajarsunnahid, # GANTI dengan username channel Telegram (tanpa @)
+              "channel": "pelajarsunnahid", # GANTI dengan username channel Telegram (tanpa @)
               "data_dir": "data",
               "publish_dir": "site"
           }
           with open("config.yaml", "w") as f:
               yaml.dump(config, f)
           '
-
-      - name: Run tg-archive Sync & Build
-        run: |
-          # Lewatkan file session yang sudah dikonversi via flag -se
-          tg-archive --config config.yaml -se telegram.session -s -b
-
-      - name: Commit and Push Results to GitHub
-        run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git add data/ site/
-          git commit -m "chore: update telegram archive data" || exit 0
-          git push
