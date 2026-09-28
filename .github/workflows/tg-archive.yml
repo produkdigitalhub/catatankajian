@@ -3,7 +3,6 @@ name: Archive Telegram Channel & Deploy Pages
 on:
   workflow_dispatch:
 
-# Berikan izin penuh untuk deployment GitHub Pages
 permissions:
   contents: write
   pages: write
@@ -34,10 +33,10 @@ jobs:
           python -m pip install --upgrade pip
           pip install tg-archive pyyaml
 
-      - name: Create Data Directory
+      - name: Create Output Directories
         run: |
-          mkdir -p data
-          touch data/.gitkeep
+          mkdir -p data site
+          touch data/.gitkeep site/.gitkeep
 
       - name: Decode Session File and Create Config
         env:
@@ -73,7 +72,7 @@ jobs:
               conn.commit()
           conn.close()
 
-          # Config tg-archive: publish_dir diarahkan ke site
+          # Config tg-archive
           config = {
               "api_id": api_id,
               "api_hash": api_hash,
@@ -85,17 +84,21 @@ jobs:
               yaml.dump(config, f)
           '
 
-      - name: Run tg-archive Sync & Build
+      - name: Run tg-archive Sync
         run: |
-          tg-archive --config config.yaml -se telegram.session -s -b
+          tg-archive --config config.yaml -se telegram.session -s
+
+      - name: Run tg-archive Build Site
+        run: |
+          tg-archive --config config.yaml -b
           touch site/.nojekyll
 
-      - name: Commit and Push Raw Data
+      - name: Commit and Push Updated Data & Site
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git add data/
-          git commit -m "chore: update raw telegram data" || exit 0
+          git add data/ site/
+          git commit -m "chore: update telegram raw data and built site" || exit 0
           git push
 
       - name: Upload Artifact to GitHub Pages
