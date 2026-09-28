@@ -24,6 +24,11 @@ jobs:
           python -m pip install --upgrade pip
           pip install tg-archive pyyaml
 
+      - name: Create Output Directories
+        run: |
+          mkdir -p data site
+          touch data/.gitkeep site/.gitkeep
+
       - name: Decode Session File and Create Config
         env:
           TG_API_ID: ${{ secrets.TG_API_ID }}
@@ -62,7 +67,7 @@ jobs:
           config = {
               "api_id": api_id,
               "api_hash": api_hash,
-              "group": "pelajarsunnahid", # GANTI dengan username channel Telegram target (tanpa @)
+              "group": "pelajarsunnahid",
               "data_dir": "data",
               "publish_dir": "site"
           }
