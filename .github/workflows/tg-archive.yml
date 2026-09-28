@@ -84,18 +84,20 @@ jobs:
               yaml.dump(config, f)
           '
 
-      - name: Run tg-archive Sync
+      - name: Init tg-archive Structure & Sync
         run: |
+          # Inisialisasi file template bawaan di direktori kerja
+          tg-archive --path . || true
+          
+          # Unduh pesan dari Telegram
           tg-archive --config config.yaml -se telegram.session -s
 
-      - name: Extract Default Template & Build Site
+      - name: Build Static Site
         run: |
-          # Cari lokasi template bawaan tg-archive di site-packages Python
-          TEMPLATE_DIR=$(python3 -c "import tgarchive, os; print(os.path.join(os.path.dirname(tgarchive.__file__), 'templates'))")
+          # Build situs HTML
+          tg-archive --config config.yaml -b
           
-          # Jalankan build dengan menunjuk direktori template bawaan
-          tg-archive --config config.yaml -b --template "$TEMPLATE_DIR/index.html" || tg-archive --config config.yaml -b
-          
+          # Matikan Jekyll agar file _site / assets terbaca sempurna
           touch site/.nojekyll
 
       - name: Commit and Push Updated Data & Site
