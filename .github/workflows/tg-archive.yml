@@ -19,33 +19,53 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install tg-archive
+      - name: Install Dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install tg-archive
+          pip install tg-archive pyyaml telethon
 
-      - name: Create tg-archive Config
+      - name: Prepare Session and Config
         env:
           TG_API_ID: ${{ secrets.TG_API_ID }}
           TG_API_HASH: ${{ secrets.TG_API_HASH }}
           TG_SESSION_STRING: ${{ secrets.TG_SESSION_STRING }}
         run: |
-          cat <<EOF > config.yaml
-          api_id: $TG_API_ID
-          api_hash: "$TG_API_HASH"
-          session_string: "$TG_SESSION_STRING"
+          python3 -c '
+          import os
+          import yaml
+          from telethon.sessions import StringSession
+          from telethon.sync import TelegramClient
+
+          api_id = int(os.environ["TG_API_ID"])
+          api_hash = os.environ["TG_API_HASH"]
+          session_string = os.environ["TG_SESSION_STRING"].strip()
+
+          # 1. Buat file .session fisik dari StringSession
+          client = TelegramClient(StringSession(session_string), api_id, api_hash)
+          client.connect()
           
-          # Ganti 'namachannel' dengan username/link channel Telegram Anda (tanpa @)
-          channel: pelajarsunnahid
-          
-          publish_dir: "site"
-          data_dir: "data"
-          EOF
+          # Simpan sebagai file session standar telethon
+          session_file = "telegram.session"
+          with open(session_file, "w") as f:
+              f.write(client.session.save())
+          client.disconnect()
+
+          # 2. Buat config.yaml
+          config = {
+              "api_id": api_id,
+              "api_hash": api_hash,
+              "channel": pelajarsunnahid, # GANTI dengan username channel Telegram (tanpa @)
+              "data_dir": "data",
+              "publish_dir": "site"
+          }
+          with open("config.yaml", "w") as f:
+              yaml.dump(config, f)
+          '
 
       - name: Run tg-archive Sync & Build
         run: |
-          # Flag -s untuk Sync (download data) dan -b untuk Build (buat file site HTML)
-          tg-archive --config config.yaml -s -b
+          # Lewatkan file session yang sudah dikonversi via flag -se
+          tg-archive --config config.yaml -se telegram.session -s -b
 
       - name: Commit and Push Results to GitHub
         run: |
