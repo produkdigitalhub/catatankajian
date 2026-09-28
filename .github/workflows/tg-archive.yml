@@ -38,7 +38,7 @@ jobs:
           mkdir -p data site
           touch data/.gitkeep site/.gitkeep
 
-     - name: Decode Session File and Create Config
+      - name: Decode Session File and Create Config
         env:
           TG_API_ID: ${{ secrets.TG_API_ID }}
           TG_API_HASH: ${{ secrets.TG_API_HASH }}
@@ -54,12 +54,12 @@ jobs:
           api_hash = os.environ["TG_API_HASH"]
           session_b64 = os.environ["TG_SESSION_STRING"].strip()
 
-          # 1. Decode session file
+          # Decode session
           session_path = "telegram.session"
           with open(session_path, "wb") as f:
               f.write(base64.b64decode(session_b64))
 
-          # 2. Fix Telethon SQLite schema (paksa tepat 5 kolom: dc_id, server_address, port, auth_key, take_out_id)
+          # Fix SQLite schema to match 5 expected columns
           conn = sqlite3.connect(session_path)
           c = conn.cursor()
           c.execute("SELECT * FROM sessions")
@@ -72,7 +72,7 @@ jobs:
               conn.commit()
           conn.close()
 
-          # 3. Buat config.yaml
+          # Config tg-archive
           config = {
               "api_id": api_id,
               "api_hash": api_hash,
