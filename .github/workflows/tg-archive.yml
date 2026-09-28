@@ -98,9 +98,16 @@ jobs:
         run: |
           tg-archive --config config.yaml -se telegram.session -s
 
-      - name: Build Static Site
+      - name: Build Static Site & Generate index.html
         run: |
           tg-archive --config config.yaml -b
+          
+          # Otomatis mengambil file .html bulan paling terbaru dan menjadikannya index.html
+          LATEST_HTML=$(ls site/*.html 2>/dev/null | grep -E '[0-9]{4}-[0-9]{2}\.html$' | sort -r | head -n 1)
+          if [ -n "$LATEST_HTML" ]; then
+            cp "$LATEST_HTML" site/index.html
+          fi
+
           touch site/.nojekyll
 
       - name: Commit and Push Updated Data & Site
