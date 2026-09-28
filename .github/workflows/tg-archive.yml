@@ -1,7 +1,7 @@
-name: pelajarsunnahid
+name: Archive Telegram Channel
 
 on:
-  workflow_dispatch: # Mengizinkan jalankan manual via tombol
+  workflow_dispatch:
 
 jobs:
   archive:
@@ -35,20 +35,17 @@ jobs:
           api_hash: "$TG_API_HASH"
           session_string: "$TG_SESSION_STRING"
           
-          # Ganti dengan username channel Telegram target (tanpa tanda @)
+          # Ganti 'namachannel' dengan username/link channel Telegram Anda (tanpa @)
           channel: "pelajarsunnahid" 
           
           publish_dir: "site"
           data_dir: "data"
           EOF
 
-      - name: Run tg-archive Sync
+      - name: Run tg-archive Sync & Build
         run: |
-          tg-archive --config config.yaml sync
-
-      - name: Build HTML Site
-        run: |
-          tg-archive --config config.yaml build
+          # Flag -s untuk Sync (download data) dan -b untuk Build (buat file site HTML)
+          tg-archive --config config.yaml -s -b
 
       - name: Commit and Push Results to GitHub
         run: |
