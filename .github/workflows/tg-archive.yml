@@ -1,0 +1,59 @@
+name: pelajarsunnahid
+
+on:
+  workflow_dispatch: # Mengizinkan jalankan manual via tombol
+
+jobs:
+  archive:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install tg-archive
+        run: |
+          python -m pip install --upgrade pip
+          pip install tg-archive
+
+      - name: Create tg-archive Config
+        env:
+          TG_API_ID: ${{ secrets.TG_API_ID }}
+          TG_API_HASH: ${{ secrets.TG_API_HASH }}
+          TG_SESSION_STRING: ${{ secrets.TG_SESSION_STRING }}
+        run: |
+          cat <<EOF > config.yaml
+          api_id: $TG_API_ID
+          api_hash: "$TG_API_HASH"
+          session_string: "$TG_SESSION_STRING"
+          
+          # Ganti dengan username channel Telegram target (tanpa tanda @)
+          channel: "namachannel" 
+          
+          publish_dir: "site"
+          data_dir: "data"
+          EOF
+
+      - name: Run tg-archive Sync
+        run: |
+          tg-archive --config config.yaml sync
+
+      - name: Build HTML Site
+        run: |
+          tg-archive --config config.yaml build
+
+      - name: Commit and Push Results to GitHub
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/ site/
+          git commit -m "chore: update telegram archive data" || exit 0
+          git push
