@@ -36,7 +36,7 @@ jobs:
           session_string: "$TG_SESSION_STRING"
           
           # Ganti 'namachannel' dengan username/link channel Telegram Anda (tanpa @)
-          channel: "pelajarsunnahid" 
+          channel: pelajarsunnahid
           
           publish_dir: "site"
           data_dir: "data"
