@@ -31,14 +31,14 @@ jobs:
       - name: Install Dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install tg-archive pyyaml
+          pip install tg-archive pyyaml telethon
 
       - name: Create Output Directories
         run: |
           mkdir -p data site
           touch data/.gitkeep site/.gitkeep
 
-      - name: Decode Session File and Create Config
+      - name: Create Config and Session
         env:
           TG_API_ID: ${{ secrets.TG_API_ID }}
           TG_API_HASH: ${{ secrets.TG_API_HASH }}
@@ -47,32 +47,24 @@ jobs:
           python3 -c '
           import os
           import base64
-          import sqlite3
           import yaml
+          from telethon.sessions import StringSession, SQLiteSession
 
           api_id = int(os.environ["TG_API_ID"])
           api_hash = os.environ["TG_API_HASH"]
-          session_b64 = os.environ["TG_SESSION_STRING"].strip()
+          session_str = os.environ["TG_SESSION_STRING"].strip()
 
-          # Decode session
-          session_path = "telegram.session"
-          with open(session_path, "wb") as f:
-              f.write(base64.b64decode(session_b64))
+          # Jika secret berupa StringSession Telethon (dimulai angka 1...):
+          try:
+              ss = StringSession(session_str)
+              sq = SQLiteSession("telegram.session")
+              sq.save(ss)
+              sq.close()
+          except Exception:
+              # Jika secret berupa file binary sqlite yang di-base64:
+              with open("telegram.session", "wb") as f:
+                  f.write(base64.b64decode(session_str))
 
-          # Fix SQLite schema to match 5 expected columns
-          conn = sqlite3.connect(session_path)
-          c = conn.cursor()
-          c.execute("SELECT * FROM sessions")
-          row = c.fetchone()
-          if row:
-              dc_id, server, port, auth_key = row[0], row[1], row[2], row[3]
-              c.execute("DROP TABLE sessions")
-              c.execute("CREATE TABLE sessions (dc_id integer primary key, server_address text, port integer, auth_key blob, take_out_id integer)")
-              c.execute("INSERT INTO sessions VALUES (?, ?, ?, ?, 0)", (dc_id, server, port, auth_key))
-              conn.commit()
-          conn.close()
-
-          # Config tg-archive
           config = {
               "api_id": api_id,
               "api_hash": api_hash,
@@ -99,7 +91,6 @@ jobs:
         run: |
           tg-archive --config config.yaml -b
           
-          # Otomatis mengambil file .html bulan paling terbaru dan menjadikannya index.html
           LATEST_HTML=$(ls site/*.html 2>/dev/null | grep -E '[0-9]{4}-[0-9]{2}\.html$' | sort -r | head -n 1)
           if [ -n "$LATEST_HTML" ]; then
             cp "$LATEST_HTML" site/index.html
