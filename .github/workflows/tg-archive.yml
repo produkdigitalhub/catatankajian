@@ -22,9 +22,9 @@ jobs:
       - name: Install Dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install tg-archive pyyaml telethon
+          pip install tg-archive pyyaml
 
-      - name: Prepare Session and Config
+      - name: Decode Session File and Create Config
         env:
           TG_API_ID: ${{ secrets.TG_API_ID }}
           TG_API_HASH: ${{ secrets.TG_API_HASH }}
@@ -32,37 +32,37 @@ jobs:
         run: |
           python3 -c '
           import os
+          import base64
           import yaml
-          from telethon.sessions import StringSession
-          from telethon.sync import TelegramClient
 
           api_id = int(os.environ["TG_API_ID"])
           api_hash = os.environ["TG_API_HASH"]
-          
-          # Clean and fix Base64 padding for TG_SESSION_STRING
-          raw_session = os.environ["TG_SESSION_STRING"].strip().replace("\n", "").replace("\r", "")
-          missing_padding = len(raw_session) % 4
-          if missing_padding:
-              raw_session += "=" * (4 - missing_padding)
+          session_b64 = os.environ["TG_SESSION_STRING"].strip()
 
-          # 1. Test connection with fixed session
-          client = TelegramClient(StringSession(raw_session), api_id, api_hash)
-          client.connect()
-          
-          # Save standard Telethon session file
-          session_file = "telegram.session"
-          with open(session_file, "w") as f:
-              f.write(client.session.save())
-          client.disconnect()
+          # Restore file .session biner utuh dari Base64
+          with open("telegram.session", "wb") as f:
+              f.write(base64.b64decode(session_b64))
 
-          # 2. Generate config.yaml
+          # Buat config.yaml untuk tg-archive
           config = {
               "api_id": api_id,
               "api_hash": api_hash,
-              "channel": "pelajarsunnahid", # GANTI dengan username channel Telegram (tanpa @)
+              "channel": "pelajarsunnahid", # GANTI dengan username channel Telegram target (tanpa @)
               "data_dir": "data",
               "publish_dir": "site"
           }
           with open("config.yaml", "w") as f:
               yaml.dump(config, f)
           '
+
+      - name: Run tg-archive Sync & Build
+        run: |
+          tg-archive --config config.yaml -se telegram.session -s -b
+
+      - name: Commit and Push Results to GitHub
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/ site/
+          git commit -m "chore: update telegram archive data" || exit 0
+          git push
