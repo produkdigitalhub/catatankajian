@@ -88,9 +88,14 @@ jobs:
         run: |
           tg-archive --config config.yaml -se telegram.session -s
 
-      - name: Run tg-archive Build Site
+      - name: Extract Default Template & Build Site
         run: |
-          tg-archive --config config.yaml -b
+          # Cari lokasi template bawaan tg-archive di site-packages Python
+          TEMPLATE_DIR=$(python3 -c "import tgarchive, os; print(os.path.join(os.path.dirname(tgarchive.__file__), 'templates'))")
+          
+          # Jalankan build dengan menunjuk direktori template bawaan
+          tg-archive --config config.yaml -b --template "$TEMPLATE_DIR/index.html" || tg-archive --config config.yaml -b
+          
           touch site/.nojekyll
 
       - name: Commit and Push Updated Data & Site
