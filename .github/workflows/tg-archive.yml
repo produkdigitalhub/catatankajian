@@ -26,8 +26,8 @@ jobs:
 
       - name: Create Output Directories
         run: |
-          mkdir -p data site
-          touch data/.gitkeep site/.gitkeep
+          mkdir -p data docs
+          touch data/.gitkeep docs/.gitkeep
 
       - name: Decode Session File and Create Config
         env:
@@ -63,13 +63,13 @@ jobs:
               conn.commit()
           conn.close()
 
-          # Buat config.yaml
+          # Buat config.yaml (publish_dir diarahkan ke "docs")
           config = {
               "api_id": api_id,
               "api_hash": api_hash,
               "group": "pelajarsunnahid",
               "data_dir": "data",
-              "publish_dir": "site"
+              "publish_dir": "docs"
           }
           with open("config.yaml", "w") as f:
               yaml.dump(config, f)
@@ -83,6 +83,6 @@ jobs:
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git add data/ site/
-          git commit -m "chore: update telegram archive data" || exit 0
+          git add data/ docs/
+          git commit -m "chore: update telegram archive data to docs" || exit 0
           git push
