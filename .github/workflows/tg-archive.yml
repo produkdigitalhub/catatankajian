@@ -47,30 +47,16 @@ jobs:
           python3 -c '
           import os
           import base64
-          import sqlite3
           import yaml
 
           api_id = int(os.environ["TG_API_ID"])
           api_hash = os.environ["TG_API_HASH"]
           session_b64 = os.environ["TG_SESSION_STRING"].strip()
 
-          # Decode session
-          session_path = "telegram.session"
-          with open(session_path, "wb") as f:
-              f.write(base64.b64decode(session_b64))
-
-          # Fix SQLite schema
-          conn = sqlite3.connect(session_path)
-          c = conn.cursor()
-          c.execute("SELECT * FROM sessions")
-          row = c.fetchone()
-          if row and len(row) > 5:
-              dc_id, server, port, auth_key = row[0], row[1], row[2], row[3]
-              c.execute("DROP TABLE sessions")
-              c.execute("CREATE TABLE sessions (dc_id integer primary key, server_address text, port integer, auth_key blob, take_out_id integer)")
-              c.execute("INSERT INTO sessions VALUES (?, ?, ?, ?, 0)", (dc_id, server, port, auth_key))
-              conn.commit()
-          conn.close()
+          # Decode session murni tanpa mengubah skema database
+          session_bytes = base64.b64decode(session_b64)
+          with open("telegram.session", "wb") as f:
+              f.write(session_bytes)
 
           # Config tg-archive
           config = {
@@ -86,10 +72,7 @@ jobs:
 
       - name: Download Official Template & Static Assets
         run: |
-          # Unduh template.html
           curl -sL https://raw.githubusercontent.com/knadh/tg-archive/master/tgarchive/templates/template.html -o template.html
-          
-          # Buat folder static dan unduh aset CSS/JS
           mkdir -p static
           curl -sL https://raw.githubusercontent.com/knadh/tg-archive/master/tgarchive/static/style.css -o static/style.css
           curl -sL https://raw.githubusercontent.com/knadh/tg-archive/master/tgarchive/static/index.js -o static/index.js || true
