@@ -38,7 +38,7 @@ jobs:
           mkdir -p data site
           touch data/.gitkeep site/.gitkeep
 
-      - name: Create Config and Session
+      - name: Decode Session File and Create Config
         env:
           TG_API_ID: ${{ secrets.TG_API_ID }}
           TG_API_HASH: ${{ secrets.TG_API_HASH }}
@@ -47,23 +47,32 @@ jobs:
           python3 -c '
           import os
           import base64
+          import sqlite3
           import yaml
-          from telethon.sessions import StringSession, SQLiteSession
 
           api_id = int(os.environ["TG_API_ID"])
           api_hash = os.environ["TG_API_HASH"]
-          session_str = os.environ["TG_SESSION_STRING"].strip()
+          session_b64 = os.environ["TG_SESSION_STRING"].strip()
 
-          # Jika secret berupa StringSession Telethon (dimulai angka 1...):
+          session_path = "telegram.session"
+          with open(session_path, "wb") as f:
+              f.write(base64.b64decode(session_b64))
+
+          # Memperbaiki skema SQLite agar persis 5 kolom sesuai standar Telethon terbaru
           try:
-              ss = StringSession(session_str)
-              sq = SQLiteSession("telegram.session")
-              sq.save(ss)
-              sq.close()
-          except Exception:
-              # Jika secret berupa file binary sqlite yang di-base64:
-              with open("telegram.session", "wb") as f:
-                  f.write(base64.b64decode(session_str))
+              conn = sqlite3.connect(session_path)
+              c = conn.cursor()
+              c.execute("SELECT * FROM sessions")
+              row = c.fetchone()
+              if row:
+                  dc_id, server, port, auth_key = row[0], row[1], row[2], row[3]
+                  c.execute("DROP TABLE sessions")
+                  c.execute("CREATE TABLE sessions (dc_id integer primary key, server_address text, port integer, auth_key blob, take_out_id integer)")
+                  c.execute("INSERT INTO sessions VALUES (?, ?, ?, ?, 0)", (dc_id, server, port, auth_key))
+                  conn.commit()
+              conn.close()
+          except Exception as e:
+              print("SQLite schema adjustment status:", e)
 
           config = {
               "api_id": api_id,
@@ -85,12 +94,14 @@ jobs:
 
       - name: Run tg-archive Sync
         run: |
-          tg-archive --config config.yaml -se telegram.session -s
+          # PENTING: Menggunakan -se telegram (tanpa .session)
+          tg-archive --config config.yaml -se telegram -s
 
       - name: Build Static Site & Generate index.html
         run: |
           tg-archive --config config.yaml -b
           
+          # Salin file bulan terbaru menjadi index.html agar tidak 404
           LATEST_HTML=$(ls site/*.html 2>/dev/null | grep -E '[0-9]{4}-[0-9]{2}\.html$' | sort -r | head -n 1)
           if [ -n "$LATEST_HTML" ]; then
             cp "$LATEST_HTML" site/index.html
