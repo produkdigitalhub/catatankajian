@@ -24,10 +24,10 @@ jobs:
           python -m pip install --upgrade pip
           pip install tg-archive pyyaml
 
-      - name: Create Output Directories
+      - name: Create Output Directories and Bypass Jekyll
         run: |
           mkdir -p data docs
-          touch data/.gitkeep docs/.gitkeep
+          touch data/.gitkeep docs/.gitkeep docs/.nojekyll
 
       - name: Decode Session File and Create Config
         env:
@@ -63,7 +63,7 @@ jobs:
               conn.commit()
           conn.close()
 
-          # Buat config.yaml (publish_dir diarahkan ke "docs")
+          # Buat config.yaml
           config = {
               "api_id": api_id,
               "api_hash": api_hash,
@@ -79,10 +79,14 @@ jobs:
         run: |
           tg-archive --config config.yaml -se telegram.session -s -b
 
+      - name: Ensure .nojekyll Exists
+        run: |
+          touch docs/.nojekyll
+
       - name: Commit and Push Results to GitHub
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git add data/ docs/
-          git commit -m "chore: update telegram archive data to docs" || exit 0
+          git commit -m "chore: update site build with .nojekyll" || exit 0
           git push
